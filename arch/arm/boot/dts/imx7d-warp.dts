@@ -66,6 +66,29 @@
 		reg = <0x80000000 0x40000000>;
 	};
 
+		bcmdhd_wlan_0: bcmdhd_wlan@0 {
+               compatible = "android,bcmdhd_wlan";
+               /* WL_HOST_WAKE=GPIO<5,11>, WL_REG_ON=GPIO<5,10>  */
+               gpios = <&gpio5 11 0>, <&gpio5 10 0>;
+               wlreg_on-supply = <&wlreg_on>;
+       };
+
+       regulators {
+               compatible = "simple-bus";
+               #address-cells = <1>;
+               #size-cells = <0>;
+
+               wlreg_on: fixedregulator@100 {
+                       compatible = "regulator-fixed";
+                       regulator-min-microvolt = <5000000>;
+                       regulator-max-microvolt = <5000000>;
+                       regulator-name = "wlreg_on";
+                       gpio = <&gpio5 10 0>; /* GPIO drives WL_REG_ON signal */
+                       startup-delay-us = <100>;
+                       enable-active-high;
+               };
+        };
+
 	sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "imx7s-sgtl5000";
@@ -79,29 +102,6 @@
 		dailink_master: simple-audio-card,codec {
 			sound-dai = <&codec>;
 			clocks = <&clks IMX7D_AUDIO_MCLK_ROOT_CLK>;
-		};
-	};
-
-	spi4 {
-		compatible = "spi-gpio";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_spi1>;
-		status = "okay";
-		gpio-sck = <&gpio1 13 0>;
-		gpio-mosi = <&gpio1 9 0>;
-		cs-gpios = <&gpio1 12 0>;
-		num-chipselects = <1>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		gpio_spi: gpio_spi@0 {
-			compatible = "fairchild,74hc595";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0>;
-			registers-number = <1>;
-			registers-default = /bits/ 8 <0x74>; /* Enable PERI_3V3, SENSOR_RST_B and HDMI_RST*/
-			spi-max-frequency = <100000>;
 		};
 	};
 
@@ -128,7 +128,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lcdif_dat
 		     &pinctrl_lcdif_ctrl>;
-	pinctrl-assert-gpios = <&gpio_spi 7 GPIO_ACTIVE_HIGH>;
+	/* there is no direct LCD reset control pin */
 	display = <&display0>;
 	status = "okay";
 
@@ -340,88 +340,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3>;
 	status = "okay";
-
-	sii902x: sii902x@39 {
-		compatible = "SiI,sii902x";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_sii902x>;
-		interrupt-parent = <&gpio2>;
-		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;
-		mode_str ="1280x720M@60";
-		bits-per-pixel = <16>;
-		reg = <0x39>;
-		status = "okay";
-	};
-
-	max17135: max17135@48 {
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_max17135>;
-		compatible = "maxim,max17135";
-		reg = <0x48>;
-		status = "disabled";
-
-		vneg_pwrup = <1>;
-		gvee_pwrup = <2>;
-		vpos_pwrup = <10>;
-		gvdd_pwrup = <12>;
-		gvdd_pwrdn = <1>;
-		vpos_pwrdn = <2>;
-		gvee_pwrdn = <8>;
-		vneg_pwrdn = <10>;
-		gpio_pmic_pwrgood = <&gpio2 31 0>;
-		gpio_pmic_vcom_ctrl = <&gpio4 14 0>;
-		gpio_pmic_wakeup = <&gpio2 23 0>;
-		gpio_pmic_v3p3 = <&gpio2 30 0>;
-		gpio_pmic_intr = <&gpio2 22 0>;
-
-		regulators {
-			DISPLAY_reg: DISPLAY {
-				regulator-name = "DISPLAY";
-			};
-
-			GVDD_reg: GVDD {
-				/* 20v */
-				regulator-name = "GVDD";
-			};
-
-			GVEE_reg: GVEE {
-				/* -22v */
-				regulator-name = "GVEE";
-			};
-
-			HVINN_reg: HVINN {
-				/* -22v */
-				regulator-name = "HVINN";
-			};
-
-			HVINP_reg: HVINP {
-				/* 20v */
-				regulator-name = "HVINP";
-			};
-
-			VCOM_reg: VCOM {
-				regulator-name = "VCOM";
-				/* 2's-compliment, -4325000 */
-				regulator-min-microvolt = <0xffbe0178>;
-				/* 2's-compliment, -500000 */
-				regulator-max-microvolt = <0xfff85ee0>;
-			};
-
-			VNEG_reg: VNEG {
-				/* -15v */
-				regulator-name = "VNEG";
-			};
-
-			VPOS_reg: VPOS {
-				/* 15v */
-				regulator-name = "VPOS";
-			};
-
-			V3P3_reg: V3P3 {
-				regulator-name = "V3P3";
-			};
-		};
-	};
 };
 
 
@@ -451,6 +369,18 @@
 	status = "okay";
 };
 
+&usdhc1 {
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc1>; /* "default entry selected as Murata 1DX */
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
+	keep-power-in-suspend;
+	enable-sdio-wakeup;
+	tuning-step = <2>;
+	wifi-host; /* Murata -- add hook for SD card detect mechanism */
+	status = "okay";
+};
+
 &usdhc3 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc3>;
@@ -468,6 +398,12 @@
 	pinctrl-names = "default";
 
 	imx7d-sdb {
+		pinctrl_hog_1: hoggrp-1 {
+		fsl,pins = <
+			MX7D_PAD_SD2_DATA3__GPIO5_IO17	0x80000000  /* pass thru the bt reg on */
+			>;
+		};
+
 		pinctrl_gpio: gpiogrp {
 			fsl,pins = <
 				MX7D_PAD_ENET1_RGMII_RD1__GPIO7_IO1	0x14
@@ -508,12 +444,6 @@
 			>;
 		};
 
-		pinctrl_sii902x: hdmigrp-1 {
-			fsl,pins = <
-				MX7D_PAD_EPDC_DATA13__GPIO2_IO13 0x59
-			>;
-		};
-
 		pinctrl_uart1: uart1grp {
 			fsl,pins = <
 				MX7D_PAD_UART1_TX_DATA__UART1_DCE_TX 0x79
@@ -537,7 +467,43 @@
 				MX7D_PAD_UART3_RX_DATA__UART3_DCE_RX 0x79
 				MX7D_PAD_UART3_CTS_B__UART3_DCE_CTS 0x79
 				MX7D_PAD_UART3_RTS_B__UART3_DCE_RTS 0x79
-				MX7D_PAD_SD2_DATA3__GPIO5_IO17 0x14/*BT_REG_ON*/
+				/* BT_REG_ON is on GPIO5 IO17 and must be toggle to reset the device */
+			>;
+		};
+
+		pinctrl_usdhc1: usdhc1grp {
+			fsl,pins = <
+				MX7D_PAD_SD1_CMD__SD1_CMD               0x59
+				MX7D_PAD_SD1_CLK__SD1_CLK               0x19
+				MX7D_PAD_SD1_DATA0__SD1_DATA0           0x59
+				MX7D_PAD_SD1_DATA1__SD1_DATA1           0x59
+				MX7D_PAD_SD1_DATA2__SD1_DATA2           0x59
+				MX7D_PAD_SD1_DATA3__SD1_DATA3           0x59
+				MX7D_PAD_SD2_WP__GPIO5_IO10             0x59
+			>;
+		};
+
+		pinctrl_usdhc1_100mhz: usdhc1grp_100mhz {
+			fsl,pins = <
+				MX7D_PAD_SD1_CMD__SD1_CMD               0x5a
+				MX7D_PAD_SD1_CLK__SD1_CLK               0x1a
+				MX7D_PAD_SD1_DATA0__SD1_DATA0           0x5a
+				MX7D_PAD_SD1_DATA1__SD1_DATA1           0x5a
+				MX7D_PAD_SD1_DATA2__SD1_DATA2           0x5a
+				MX7D_PAD_SD1_DATA3__SD1_DATA3           0x5a
+				MX7D_PAD_SD2_WP__GPIO5_IO10             0x59 
+			>;
+		};
+
+		pinctrl_usdhc1_200mhz: usdhc1grp_200mhz {
+			fsl,pins = <
+				MX7D_PAD_SD1_CMD__SD1_CMD               0x5b
+				MX7D_PAD_SD1_CLK__SD1_CLK               0x1b
+				MX7D_PAD_SD1_DATA0__SD1_DATA0           0x5b
+				MX7D_PAD_SD1_DATA1__SD1_DATA1           0x5b
+				MX7D_PAD_SD1_DATA2__SD1_DATA2           0x5b
+				MX7D_PAD_SD1_DATA3__SD1_DATA3           0x5b
+				MX7D_PAD_SD2_WP__GPIO5_IO10             0x59 
 			>;
 		};
 
@@ -632,24 +598,6 @@
 				MX7D_PAD_LCD_VSYNC__LCD_VSYNC	0x79
 				MX7D_PAD_LCD_HSYNC__LCD_HSYNC	0x79
 				MX7D_PAD_LCD_RESET__LCD_RESET	0x79
-			>;
-		};
-
-		pinctrl_max17135: max17135grp-1 {
-			fsl,pins = <
-				MX7D_PAD_EPDC_PWR_STAT__GPIO2_IO31	0x80000000  /* pwrgood */
-				MX7D_PAD_I2C4_SCL__GPIO4_IO14		0x80000000  /* vcom_ctrl */
-				MX7D_PAD_EPDC_SDCE3__GPIO2_IO23		0x80000000  /* wakeup */
-				MX7D_PAD_EPDC_PWR_COM__GPIO2_IO30	0x80000000  /* v3p3 */
-				MX7D_PAD_EPDC_SDCE2__GPIO2_IO22		0x80000000  /* pwr int */
-			>;
-		};
-
-		pinctrl_spi1: spi1grp {
-			fsl,pins = <
-				MX7D_PAD_GPIO1_IO09__GPIO1_IO9	0x59
-				MX7D_PAD_GPIO1_IO12__GPIO1_IO12	0x59
-				MX7D_PAD_GPIO1_IO13__GPIO1_IO13	0x59
 			>;
 		};
 
