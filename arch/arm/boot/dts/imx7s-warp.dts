@@ -66,6 +66,29 @@
 		};
 	};
 
+	bcmdhd_wlan_0: bcmdhd_wlan@0 {
+		compatible = "android,bcmdhd_wlan";
+		/* WL_HOST_WAKE=GPIO<5,11>, WL_REG_ON=GPIO<5,10>  */
+		gpios = <&gpio5 11 0>, <&gpio5 10 0>;
+		wlreg_on-supply = <&wlreg_on>;
+	};
+
+	regulators {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		wlreg_on: fixedregulator@100 {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+			regulator-name = "wlreg_on";
+			gpio = <&gpio5 10 0>; /* GPIO drives WL_REG_ON signal */
+			startup-delay-us = <100>;
+			enable-active-high;
+		};
+	};
+
 	sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "imx7s-sgtl5000";
@@ -82,18 +105,6 @@
 		};
 	};
 
-	reg_brcm: brcm-reg {
-		compatible = "regulator-fixed";
-		enable-active-high;
-		gpio = <&gpio5 10 0>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_brcm_reg>;
-		regulator-name = "brcm_reg";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		startup-delay-us = <200000>;
-	};
-
 	reg_bt: bt-reg {
 		compatible = "regulator-fixed";
 		enable-active-high;
@@ -103,6 +114,68 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
+
+	backlight {
+		compatible = "pwm-backlight";
+		pwms = <&pwm1 0 5000000>;
+		brightness-levels = <0 4 8 16 32 64 128 255>;
+		default-brightness-level = <6>;
+		status = "okay";
+	};
+
+	mipi_dsi_reset: mipi-dsi-reset {
+		compatible = "gpio-reset";
+		/*reset-gpios = <&gpio7 6 GPIO_ACTIVE_LOW>;*/
+		reset-delay-us = <50>;
+		#reset-cells = <0>;
+	};
+};
+
+&lcdif {
+
+	disp-dev = "mipi_dsi_samsung";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lcdif_dat
+		     &pinctrl_lcdif_ctrl>;
+	/* there is no direct LCD reset control pin */
+	display = <&display0>;
+	status = "okay";
+
+	display0: display {
+		bits-per-pixel = <16>;
+		bus-width = <24>;
+
+		display-timings {
+			native-mode = <&timing0>;
+			timing0: timing0 {
+			clock-frequency = <9200000>;
+			hactive = <480>;
+			vactive = <272>;
+			hfront-porch = <8>;
+			hback-porch = <4>;
+			hsync-len = <41>;
+			vback-porch = <2>;
+			vfront-porch = <4>;
+			vsync-len = <10>;
+
+			hsync-active = <0>;
+			vsync-active = <0>;
+			de-active = <1>;
+			pixelclk-active = <0>;
+			};
+		};
+	};
+};
+
+&mipi_dsi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_enet2_epdc0_en>;
+	lcd_panel = "TRULY-TDO-QVGA0150A90049";
+	resets = <&mipi_dsi_reset>;
+	back-light-gpios = <&gpio7 2 1>;
+	reset-gpios = <&gpio7 6 0>;
+	status = "okay";
 };
 
 &clks {
@@ -225,6 +298,19 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2>;
 	status = "okay";
+
+        himax-ts@48 {
+                compatible = "himax,852xes";
+                reg = <0x48>;
+                pinctrl-0 = <&pinctrl_ctp>;
+                interrupt-parent = <&gpio1>;
+                interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
+
+                himax,panel-coords = <0 320 0 320>;
+                himax,display-coords = <0 320 0 320>;
+                himax,irq-gpio = <&gpio1 1 0x00>;
+                report_type = <1>;
+	};
 };
 
 &i2c4 {
@@ -268,8 +354,41 @@
 	status = "okay";
 };
 
+&i2c3 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c3>;
+	status = "okay";
+};
+
+
 &sdma {
 	status = "okay";
+};
+
+&iomuxc_lpsr {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_hog_2 &pinctrl_usbotg2_pwr_2>;
+
+        imx7d-sdb {
+                pinctrl_ctp: ctp {
+                        fsl,pins = <
+                                MX7D_PAD_GPIO1_IO01__GPIO1_IO1    0x14
+                        >;
+                };
+
+                pinctrl_hog_2: hoggrp-2 {
+                        fsl,pins = <
+                                MX7D_PAD_GPIO1_IO05__GPIO1_IO5    0x14
+                        >;
+                };
+
+                pinctrl_usbotg2_pwr_2: usbotg2-2 {
+                        fsl,pins = <
+                                MX7D_PAD_GPIO1_IO07__GPIO1_IO7 0x14
+                        >;
+                };
+	};
 };
 
 &uart1 {
@@ -295,13 +414,14 @@
 };
 
 &usdhc1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_usdhc1>;
-	bus-width = <4>;
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&pinctrl_usdhc1>; /* "default entry selected as Murata 1DX */
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
 	keep-power-in-suspend;
-	no-1-8-v;
-	non-removable;
-	vmmc-supply = <&reg_brcm>;
+	enable-sdio-wakeup;
+	tuning-step = <2>;
+	wifi-host; /* Murata -- add hook for SD card detect mechanism */
 	status = "okay";
 };
 
@@ -322,9 +442,9 @@
 	pinctrl-names = "default";
 
 	imx7d-sdb {
-		pinctrl_brcm_reg: brcmgrp {
-			fsl,pins = <
-				MX7D_PAD_SD2_WP__GPIO5_IO10	0x14 /* WL_REG_ON */
+		pinctrl_hog_1: hoggrp-1 {
+		fsl,pins = <
+			MX7D_PAD_SD2_DATA3__GPIO5_IO17	0x80000000  /* pass thru the bt reg on */
 			>;
 		};
 
@@ -351,6 +471,13 @@
 			fsl,pins = <
 				MX7D_PAD_I2C2_SDA__I2C2_SDA	0x4000007f
 				MX7D_PAD_I2C2_SCL__I2C2_SCL	0x4000007f
+			>;
+		};
+
+		pinctrl_i2c3: i2c3grp {
+			fsl,pins = <
+				MX7D_PAD_I2C3_SDA__I2C3_SDA          0x4000007f
+				MX7D_PAD_I2C3_SCL__I2C3_SCL          0x4000007f
 			>;
 		};
 
@@ -385,18 +512,43 @@
 				MX7D_PAD_UART3_CTS_B__UART3_DCE_CTS 0x79
 				MX7D_PAD_UART3_RTS_B__UART3_DCE_RTS 0x79
 				MX7D_PAD_SD2_DATA3__GPIO5_IO17 0x14/*BT_REG_ON*/
+				/* BT_REG_ON is on GPIO5 IO17 and must be toggle to reset the device */
 			>;
 		};
 
 		pinctrl_usdhc1: usdhc1grp {
 			fsl,pins = <
-				MX7D_PAD_SD1_CMD__SD1_CMD	0x59
-				MX7D_PAD_SD1_CLK__SD1_CLK	0x19
-				MX7D_PAD_SD1_DATA0__SD1_DATA0	0x59
-				MX7D_PAD_SD1_DATA1__SD1_DATA1	0x59
-				MX7D_PAD_SD1_DATA2__SD1_DATA2	0x59
-				MX7D_PAD_SD1_DATA3__SD1_DATA3	0x59
-				MX7D_PAD_SD2_RESET_B__GPIO5_IO11 0x14 /* WL_HOST_WAKE */
+				MX7D_PAD_SD1_CMD__SD1_CMD               0x59
+				MX7D_PAD_SD1_CLK__SD1_CLK               0x19
+				MX7D_PAD_SD1_DATA0__SD1_DATA0           0x59
+				MX7D_PAD_SD1_DATA1__SD1_DATA1           0x59
+				MX7D_PAD_SD1_DATA2__SD1_DATA2           0x59
+				MX7D_PAD_SD1_DATA3__SD1_DATA3           0x59
+				MX7D_PAD_SD2_WP__GPIO5_IO10             0x59
+			>;
+		};
+
+		pinctrl_usdhc1_100mhz: usdhc1grp_100mhz {
+			fsl,pins = <
+				MX7D_PAD_SD1_CMD__SD1_CMD               0x5a
+				MX7D_PAD_SD1_CLK__SD1_CLK               0x1a
+				MX7D_PAD_SD1_DATA0__SD1_DATA0           0x5a
+				MX7D_PAD_SD1_DATA1__SD1_DATA1           0x5a
+				MX7D_PAD_SD1_DATA2__SD1_DATA2           0x5a
+				MX7D_PAD_SD1_DATA3__SD1_DATA3           0x5a
+				MX7D_PAD_SD2_WP__GPIO5_IO10             0x59 
+			>;
+		};
+
+		pinctrl_usdhc1_200mhz: usdhc1grp_200mhz {
+			fsl,pins = <
+				MX7D_PAD_SD1_CMD__SD1_CMD               0x5b
+				MX7D_PAD_SD1_CLK__SD1_CLK               0x1b
+				MX7D_PAD_SD1_DATA0__SD1_DATA0           0x5b
+				MX7D_PAD_SD1_DATA1__SD1_DATA1           0x5b
+				MX7D_PAD_SD1_DATA2__SD1_DATA2           0x5b
+				MX7D_PAD_SD1_DATA3__SD1_DATA3           0x5b
+				MX7D_PAD_SD2_WP__GPIO5_IO10             0x59 
 			>;
 		};
 
@@ -432,6 +584,13 @@
 			>;
 		};
 
+		pinctrl_enet2_epdc0_en: enet2_epdc0_grp {
+			fsl,pins = <
+			MX7D_PAD_ENET1_RGMII_RD2__GPIO7_IO2 0x00
+			MX7D_PAD_ENET1_RGMII_TD0__GPIO7_IO6  0x00
+			>;
+		};
+
 		pinctrl_usdhc3_200mhz: usdhc3grp_200mhz {
 			fsl,pins = <
 				MX7D_PAD_SD3_CMD__SD3_CMD	0x5b
@@ -447,5 +606,45 @@
 				MX7D_PAD_SD3_RESET_B__SD3_RESET_B 0x1b
 			>;
 		};
+
+		pinctrl_lcdif_dat: lcdifdatgrp {
+			fsl,pins = <
+				MX7D_PAD_LCD_DATA00__LCD_DATA0	0x79
+				MX7D_PAD_LCD_DATA01__LCD_DATA1	0x79
+				MX7D_PAD_LCD_DATA02__LCD_DATA2	0x79
+				MX7D_PAD_LCD_DATA03__LCD_DATA3	0x79
+				MX7D_PAD_LCD_DATA04__LCD_DATA4	0x79
+				MX7D_PAD_LCD_DATA05__LCD_DATA5	0x79
+				MX7D_PAD_LCD_DATA06__LCD_DATA6	0x79
+				MX7D_PAD_LCD_DATA07__LCD_DATA7	0x79
+				MX7D_PAD_LCD_DATA08__LCD_DATA8	0x79
+				MX7D_PAD_LCD_DATA09__LCD_DATA9	0x79
+				MX7D_PAD_LCD_DATA10__LCD_DATA10	0x79
+				MX7D_PAD_LCD_DATA11__LCD_DATA11	0x79
+				MX7D_PAD_LCD_DATA12__LCD_DATA12	0x79
+				MX7D_PAD_LCD_DATA13__LCD_DATA13	0x79
+				MX7D_PAD_LCD_DATA14__LCD_DATA14	0x79
+				MX7D_PAD_LCD_DATA15__LCD_DATA15	0x79
+				MX7D_PAD_LCD_DATA16__LCD_DATA16	0x79
+				MX7D_PAD_LCD_DATA17__LCD_DATA17	0x79
+				MX7D_PAD_LCD_DATA18__LCD_DATA18	0x79
+				MX7D_PAD_LCD_DATA19__LCD_DATA19	0x79
+				MX7D_PAD_LCD_DATA20__LCD_DATA20	0x79
+				MX7D_PAD_LCD_DATA21__LCD_DATA21	0x79
+				MX7D_PAD_LCD_DATA22__LCD_DATA22	0x79
+				MX7D_PAD_LCD_DATA23__LCD_DATA23	0x79
+			>;
+		};
+
+		pinctrl_lcdif_ctrl: lcdifctrlgrp {
+			fsl,pins = <
+				MX7D_PAD_LCD_CLK__LCD_CLK	0x79
+				MX7D_PAD_LCD_ENABLE__LCD_ENABLE	0x79
+				MX7D_PAD_LCD_VSYNC__LCD_VSYNC	0x79
+				MX7D_PAD_LCD_HSYNC__LCD_HSYNC	0x79
+				MX7D_PAD_LCD_RESET__LCD_RESET	0x79
+			>;
+		};
+
 	};
 };
