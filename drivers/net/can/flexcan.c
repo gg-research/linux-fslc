@@ -42,6 +42,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regmap.h>
 
+//mf
+#include <linux/pinctrl/consumer.h>
+
 #define DRV_NAME			"flexcan"
 
 /* 8 for RX fifo and 2 error handling */

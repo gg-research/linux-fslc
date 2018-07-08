@@ -32,6 +32,9 @@
 #include <linux/of_irq.h>
 #include <linux/spinlock.h>
 
+//mf 
+#include <linux/pinctrl/consumer.h>
+
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
 	struct input_dev *input;
