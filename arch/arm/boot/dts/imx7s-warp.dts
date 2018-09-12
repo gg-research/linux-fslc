@@ -758,6 +758,18 @@
 						linux,phandle = <0x22>;
 						phandle = <0x22>;
 					};
+
+					# mf adds here for spidev
+					# ref https://community.nxp.com/thread/452530
+			        pinctrl_ecspi2: ecspi2grp {
+			            fsl,pins = <
+			                MX7D_PAD_ECSPI2_MISO__ECSPI2_MISO          0x00000014    /* MISO */
+			                MX7D_PAD_ECSPI2_MOSI__ECSPI2_MOSI          0x00000014    /* MOSI */
+			                MX7D_PAD_ECSPI2_SCLK__ECSPI2_SCLK          0x00000014    /* SCLK */
+			                MX7D_PAD_ECSPI2_SS0__GPIO4_IO23            0x00000014    /* CS1 */
+			            >;
+			        };
+
 				};
 			};
 
@@ -1159,18 +1171,38 @@
 					status = "disabled";
 				};
 
+				## mf remove; see below 
+				#ecspi@30840000 {
+					##address-cells = <0x1>;
+					##size-cells = <0x0>;
+					#compatible = "fsl,imx7d-ecspi", "fsl,imx6sx-ecspi", "fsl,imx51-ecspi";
+					#reg = <0x30840000 0x10000>;
+					#interrupts = <0x0 0x21 0x4>;
+					#clocks = <0x1 0x106 0x1 0x106>;
+					#clock-names = "ipg", "per";
+					#
+					#dmas = <0x29 0x4 0x7 0x1 0x29 0x5 0x7 0x2>;
+					#dma-names = "rx", "tx";
+					#status = "disabled";
+				#};
+
+				# mf add
+				# ref https://community.nxp.com/thread/452530
 				ecspi@30840000 {
-					#address-cells = <0x1>;
-					#size-cells = <0x0>;
-					compatible = "fsl,imx7d-ecspi", "fsl,imx6sx-ecspi", "fsl,imx51-ecspi";
-					reg = <0x30840000 0x10000>;
-					interrupts = <0x0 0x21 0x4>;
-					clocks = <0x1 0x106 0x1 0x106>;
-					clock-names = "ipg", "per";
-					dmas = <0x29 0x4 0x7 0x1 0x29 0x5 0x7 0x2>;
-					dma-names = "rx", "tx";
-					status = "disabled";
+				    fsl,spi-num-chipselects = <1>;
+				    cs-gpios = <&gpio4 23 GPIO_ACTIVE_LOW>;
+				    pinctrl-names = "default";
+				    pinctrl-0 = <&pinctrl_ecspi2>;
+				    status = "okay";        
+				    
+				    spidev@0 {
+				        compatible = "rohm,dh2228fv"; // For this test
+				        reg = <0>;
+				        spi-max-frequency = <10000000>;
+				        spi-cs-high;
+				    };
 				};
+
 
 				serial@30860000 {
 					compatible = "fsl,imx7d-uart", "fsl,imx6q-uart", "fsl,imx21-uart";
