@@ -1155,7 +1155,8 @@
 					clock-names = "ipg", "per";
 					dmas = <0x29 0x0 0x7 0x1 0x29 0x1 0x7 0x2>;
 					dma-names = "rx", "tx";
-					status = "disabled";
+					#mf status = "disabled";
+					status = "okay";
 				};
 
 				ecspi@30830000 {
@@ -1168,7 +1169,8 @@
 					clock-names = "ipg", "per";
 					dmas = <0x29 0x2 0x7 0x1 0x29 0x3 0x7 0x2>;
 					dma-names = "rx", "tx";
-					status = "disabled";
+					# mf status = "disabled";
+					status = "okay";
 				};
 
 				## mf remove; see below 
@@ -1196,7 +1198,8 @@
 				    status = "okay";        
 				    
 				    spidev@0 {
-				        compatible = "rohm,dh2228fv"; // For this test
+				        #compatible = "rohm,dh2228fv"; // For this test
+				        compatible = "linux,spidev";
 				        reg = <0>;
 				        spi-max-frequency = <10000000>;
 				        spi-cs-high;
