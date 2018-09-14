@@ -486,7 +486,7 @@
 				#interrupt-cells = <0x2>;
 			};
 
-			gpio@30240000 {
+			gpio4_label: gpio@30240000 {
 				compatible = "fsl,imx7d-gpio", "fsl,imx35-gpio";
 				reg = <0x30240000 0x10000>;
 				interrupts = <0x0 0x48 0x4 0x0 0x49 0x4>;
@@ -760,7 +760,7 @@
 					};
 
 			        pinctrl_ecspi2: ecspi2grp {
-			            fsl,pins = <MX7D_PAD_ECSPI2_MISO__ECSPI2_MISO 0x00000014 MX7D_PAD_ECSPI2_MOSI__ECSPI2_MOSI 0x00000014 MX7D_PAD_ECSPI2_SCLK__ECSPI2_SCLK 0x00000014 MX7D_PAD_ECSPI2_SS0__GPIO4_IO23 0x00000014>;
+			            fsl,pins = <0x0180 0x03F0 0x0538 0x0 0x0 0x00000014 0x017C 0x03EC 0x053C 0x0 0x0 0x00000014 0x0178 0x03E8 0x0534 0x0 0x0 0x00000014 0x0184 0x03F4 0x0000 0x5 0x0 0x00000014>;
 			        };
 
 				};
@@ -1148,8 +1148,7 @@
 					clock-names = "ipg", "per";
 					dmas = <0x29 0x0 0x7 0x1 0x29 0x1 0x7 0x2>;
 					dma-names = "rx", "tx";
-					#mf status = "disabled";
-					status = "okay";
+					status = "disabled";
 				};
 
 				ecspi@30830000 {
@@ -1162,35 +1161,22 @@
 					clock-names = "ipg", "per";
 					dmas = <0x29 0x2 0x7 0x1 0x29 0x3 0x7 0x2>;
 					dma-names = "rx", "tx";
-					# mf status = "disabled";
-					status = "okay";
+					// mf status = "disabled";
+					status = "disabled";
 				};
-
-				## mf remove; see below 
-				#ecspi@30840000 {
-					##address-cells = <0x1>;
-					##size-cells = <0x0>;
-					#compatible = "fsl,imx7d-ecspi", "fsl,imx6sx-ecspi", "fsl,imx51-ecspi";
-					#reg = <0x30840000 0x10000>;
-					#interrupts = <0x0 0x21 0x4>;
-					#clocks = <0x1 0x106 0x1 0x106>;
-					#clock-names = "ipg", "per";
-					#
-					#dmas = <0x29 0x4 0x7 0x1 0x29 0x5 0x7 0x2>;
-					#dma-names = "rx", "tx";
-					#status = "disabled";
-				#};
 
 				ecspi@30840000 {
 				    fsl,spi-num-chipselects = <1>;
-				    cs-gpios = <&gpio4 23 GPIO_ACTIVE_LOW>;
+				    // cs-gpios = <&gpio4 23 1>;
+				    cs-gpios = <&gpio4_label 23 1>;
+				    // "/soc/aips-bus@30000000/gpio@30240000"
 				    pinctrl-names = "default";
 				    pinctrl-0 = <&pinctrl_ecspi2>;
 				    status = "okay";        
 
 				    spidev@0 {
 				        compatible = "rohm,dh2228fv"; 
-				        #compatible = "linux,spidev";
+				        // compatible = "linux,spidev";
 				        reg = <0>;
 				        spi-max-frequency = <10000000>;
 				        spi-cs-high;
