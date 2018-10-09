@@ -41,6 +41,8 @@
  *     OTHER DEALINGS IN THE SOFTWARE.
  */
 
+ // dtc -I dts imx7s-warp.dts -O dtb -o imx7s-warp.dtb
+
 /dts-v1/;
 
 #include "imx7d.dtsi"
@@ -451,18 +453,26 @@
 
 &iomuxc {
 	pinctrl-names = "default";
+	// mf add
+	pinctrl-3 = <&pinctrl_hog>;
 
 	imx7s-warp {
+
+		// mf adds for stepper control
+		hog {
+			pinctrl_hog: hoggrp {
+				fsl,pins = <
+					MX7D_PAD_I2C3_SDA__GPIO4_IO13         0x05
+					MX7D_PAD_I2C3_SCL__GPIO4_IO12         0x05
+					MX7D_PAD_ECSPI1_SCLK__GPIO4_IO16      0x05
+					MX7D_PAD_ECSPI1_MOSI__GPIO4_IO17	  0x05
+				>;
+			};
+		};
+
 		pinctrl_hog_1: hoggrp-1 {
 		fsl,pins = <
 			MX7D_PAD_SD2_DATA3__GPIO5_IO17	0x80000000  /* pass thru the bt reg on */
-
-			// mf adds for stepper control
-			MX7D_PAD_I2C3_SDA__GPIO4_IO13         0x05
-			MX7D_PAD_I2C3_SCL__GPIO4_IO12         0x05
-
-			MX7D_PAD_ECSPI1_SCLK__GPIO4_IO16      0x05
-			MX7D_PAD_ECSPI1_MOSI__GPIO4_IO17	  0x05
 			>;
 		};
 
