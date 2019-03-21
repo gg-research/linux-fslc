@@ -46,6 +46,7 @@
 /dts-v1/;
 
 #include "imx7d.dtsi"
+//  /include/ "imx7d.dtsi"
 
 / {
 	model = "Warp i.MX7S Board";
@@ -413,8 +414,14 @@
 	status = "okay";
 };
 
+// mf mods
+// peripheral, host, otg
+//&usbotg1 {
+//	dr_mode = "peripheral";
+//	status = "okay";
+//};
 &usbotg1 {
-	dr_mode = "peripheral";
+	dr_mode = "otg";
 	status = "okay";
 };
 
@@ -725,4 +732,6 @@
 			>;
 		};
 	};
-}
+	};
+};
+
