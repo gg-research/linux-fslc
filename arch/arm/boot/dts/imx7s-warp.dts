@@ -741,6 +741,6 @@
 };
 
 // Enable the 1 adc channel on our imx7s5evk device
-adc1: adc@30610000 {
+&adc1 {
 	status = "okay";
 };
