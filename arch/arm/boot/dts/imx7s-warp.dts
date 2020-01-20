@@ -196,6 +196,8 @@
 	pinctrl-0 = <&pinctrl_i2c1>;
 	status = "okay";
 
+	// this looks like it may be i2c address 0x08
+	//   which is consistent with the schematic
 	pmic: pfuze3000@08 {
 		compatible = "fsl,pfuze3000";
 		reg = <0x08>;
@@ -289,6 +291,9 @@
 		};
 	};
 
+	// perhaps i2c addr 0x49 
+	//  something shows up there using i2cdetect
+	//  not 92h,93h as the schematic says
 	bc3770@49 {
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_charger>;
@@ -735,3 +740,7 @@
 	};
 };
 
+// Enable the 1 adc channel on our imx7s5evk device
+adc1: adc@30610000 {
+	status = "okay";
+};
