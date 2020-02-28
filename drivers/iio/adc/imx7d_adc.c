@@ -33,7 +33,7 @@
 #define IMX7D_REG_ADC_CH_D_CFG1			0x60
 #define IMX7D_REG_ADC_CH_D_CFG2			0x70
 #define IMX7D_REG_ADC_CH_SW_CFG			0x80
-#define IMX7D_REG_ADC_TIMER_UNIT		0x90
+#define IMX7D_REG_ADC_TIMER_UNIT		0x90            // trigger - not used
 #define IMX7D_REG_ADC_DMA_FIFO			0xa0
 #define IMX7D_REG_ADC_FIFO_STATUS		0xb0
 #define IMX7D_REG_ADC_INT_SIG_EN		0xc0
@@ -151,6 +151,7 @@ static const struct imx7d_adc_analogue_core_clk imx7d_adc_analogue_clk[] = {
 				BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 }
 
+// probably need to add sets of 16 for additional 3 channels (A..D)
 static const struct iio_chan_spec imx7d_adc_iio_channels[] = {
 	IMX7D_ADC_CHAN(0),
 	IMX7D_ADC_CHAN(1),
@@ -168,6 +169,11 @@ static const struct iio_chan_spec imx7d_adc_iio_channels[] = {
 	IMX7D_ADC_CHAN(13),
 	IMX7D_ADC_CHAN(14),
 	IMX7D_ADC_CHAN(15),
+
+	// a group of 16 will represent chan B
+	// a group of 16 will represent chan C
+	// a group of 16 will represent chan D
+	
 };
 
 static const u32 imx7d_adc_average_num[] = {
@@ -182,7 +188,8 @@ static void imx7d_adc_feature_config(struct imx7d_adc *info)
 	info->adc_feature.clk_pre_div = IMX7D_ADC_ANALOG_CLK_PRE_DIV_4;
 	info->adc_feature.avg_num = IMX7D_ADC_AVERAGE_NUM_32;
 	info->adc_feature.core_time_unit = 1;
-	info->adc_feature.average_en = true;
+	//info->adc_feature.average_en = true;
+	info->adc_feature.average_en = false;			// disable averaging
 }
 
 static void imx7d_adc_sample_rate_set(struct imx7d_adc *info)
@@ -198,8 +205,10 @@ static void imx7d_adc_sample_rate_set(struct imx7d_adc *info)
 	 * clear the bit 31 of register REG_ADC_CH_A\B\C\D_CFG1.
 	 */
 	for (i = 0; i < 4; i++) {
-		tmp_cfg1 = readl(info->regs + i * IMX7D_EACH_CHANNEL_REG_OFFSET);
+		//									0x20
+		tmp_cfg1 = readl(info->regs + i * IMX7D_EACH_CHANNEL_REG_OFFSET);   // TODO
 		tmp_cfg1 &= ~IMX7D_REG_ADC_CH_CFG1_CHANNEL_EN;
+		//									0x20
 		writel(tmp_cfg1, info->regs + i * IMX7D_EACH_CHANNEL_REG_OFFSET);
 	}
 
@@ -218,8 +227,8 @@ static void imx7d_adc_hw_init(struct imx7d_adc *info)
 	/* power up and enable adc analogue core */
 	cfg = readl(info->regs + IMX7D_REG_ADC_ADC_CFG);
 	cfg &= ~(IMX7D_REG_ADC_ADC_CFG_ADC_CLK_DOWN | IMX7D_REG_ADC_ADC_CFG_ADC_POWER_DOWN);
-	cfg |= IMX7D_REG_ADC_ADC_CFG_ADC_EN;
-	writel(cfg, info->regs + IMX7D_REG_ADC_ADC_CFG);
+	cfg |= IMX7D_REG_ADC_ADC_CFG_ADC_EN;				// Note - 1.1V not 1.8V !  internal blocks only, I think
+	writel(cfg, info->regs + IMX7D_REG_ADC_ADC_CFG);		
 
 	/* enable channel A,B,C,D interrupt */
 	writel(IMX7D_REG_ADC_INT_CHANNEL_INT_EN, info->regs + IMX7D_REG_ADC_INT_SIG_EN);
@@ -234,29 +243,39 @@ static void imx7d_adc_channel_set(struct imx7d_adc *info)
 	u32 cfg2;
 	u32 channel;
 
-	channel = info->channel;
+	//channel = info->channel;
+	channel = info->channel / 16;	// int division and floor ==> 0,1,2,3 
+									//   Currently always 0 as we only have 0..15 channels
 
 	/* the channel choose single conversion, and enable average mode */
-	cfg1 |= (IMX7D_REG_ADC_CH_CFG1_CHANNEL_EN |
-		 IMX7D_REG_ADC_CH_CFG1_CHANNEL_SINGLE);
+	cfg1 |= (IMX7D_REG_ADC_CH_CFG1_CHANNEL_EN |				// 1<<31
+		 IMX7D_REG_ADC_CH_CFG1_CHANNEL_SINGLE);				// BIT(30)
 	if (info->adc_feature.average_en)
-		cfg1 |= IMX7D_REG_ADC_CH_CFG1_CHANNEL_AVG_EN;
+		cfg1 |= IMX7D_REG_ADC_CH_CFG1_CHANNEL_AVG_EN;		// BIT(29)
 
 	/*
-	 * physical channel 0 chose logical channel A
+	 * physical channel 0 chose logical channel A    		// no! bugbug
 	 * physical channel 1 chose logical channel B
 	 * physical channel 2 chose logical channel C
 	 * physical channel 3 chose logical channel D
 	 */
-	cfg1 |= IMX7D_REG_ADC_CH_CFG1_CHANNEL_SEL(channel);
+	//cfg1 |= IMX7D_REG_ADC_CH_CFG1_CHANNEL_SEL(channel);		// x<<24 which is bitfield for channels 0..15
+	cfg1 |= IMX7D_REG_ADC_CH_CFG1_CHANNEL_SEL (info->channel);
 
 	/* read register REG_ADC_CH_A\B\C\D_CFG2, according to the channel chosen */
+	//																	+	0x10
 	cfg2 = readl(info->regs + IMX7D_EACH_CHANNEL_REG_OFFSET * channel + IMX7D_REG_ADC_CHANNEL_CFG2_BASE);
 
-	cfg2 |= imx7d_adc_average_num[info->adc_feature.avg_num];
+	// 32 samples averaged
+	// 500KHz / 32 = 15.625Khz sample rate -- not high enough for 23Khz accellerometer
+	//cfg2 |= imx7d_adc_average_num[info->adc_feature.avg_num];
 
 	/* write the register REG_ADC_CH_A\B\C\D_CFG2, according to the channel chosen */
+	// 						+ 0x20                                    +0x10
 	writel(cfg2, info->regs + IMX7D_EACH_CHANNEL_REG_OFFSET * channel + IMX7D_REG_ADC_CHANNEL_CFG2_BASE);
+
+	// offset 0x0
+	//                      + 0x20 * channel     -- TODO isn't this wrong? will write value to   base+0x0
 	writel(cfg1, info->regs + IMX7D_EACH_CHANNEL_REG_OFFSET * channel);
 }
 
@@ -268,9 +287,12 @@ static u32 imx7d_adc_get_sample_rate(struct imx7d_adc *info)
 	u32 core_time_unit = info->adc_feature.core_time_unit;
 	u32 tmp;
 
+	//                   24000000 / 4
 	analogue_core_clk = input_clk / info->pre_div_num;
+	//           12  = (1 + 1) * 6
 	tmp = (core_time_unit + 1) * 6;
 
+	//           6000000     / 12
 	return analogue_core_clk / tmp;
 }
 
@@ -290,11 +312,12 @@ static int imx7d_adc_read_raw(struct iio_dev *indio_dev,
 		mutex_lock(&indio_dev->mlock);
 		reinit_completion(&info->completion);
 
-		channel = chan->channel & 0x03;
+		//channel = chan->channel & 0x03;        // TODO 0xF --why 0x3? -suggests 4 channels not 15
+		channel = chan->channel & 0x0F;
 		info->channel = channel;
 		imx7d_adc_channel_set(info);
 
-		ret = wait_for_completion_interruptible_timeout
+		ret = wait_for_completion_interruptible_timeout		// Waits interrupt for 32 avg samples
 				(&info->completion, IMX7D_ADC_TIMEOUT);
 		if (ret == 0) {
 			mutex_unlock(&indio_dev->mlock);
@@ -477,9 +500,9 @@ static int imx7d_adc_probe(struct platform_device *pdev)
 
 	indio_dev->name = dev_name(&pdev->dev);
 	indio_dev->dev.parent = &pdev->dev;
-	indio_dev->info = &imx7d_adc_iio_info;
+	indio_dev->info = &imx7d_adc_iio_info;        // setup sysfs and debugfs interfaces
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->channels = imx7d_adc_iio_channels;
+	indio_dev->channels = imx7d_adc_iio_channels;	// 16 channels but which port ?  dts file shows 4 total
 	indio_dev->num_channels = ARRAY_SIZE(imx7d_adc_iio_channels);
 
 	ret = clk_prepare_enable(info->clk);
